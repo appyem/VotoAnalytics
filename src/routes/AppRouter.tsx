@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import type { ReactNode } from "react";
 import { useAuthStore } from "../store/authStore";
-import AppLayout from "../components/layout/AppLayout.tsx";
+import AppLayout from "../components/layout/AppLayout";
 import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
 import DataUpload from "../pages/DataUpload";
@@ -9,7 +10,7 @@ import AIInsights from "../pages/AIInsights";
 import Reports from "../pages/Reports";
 import PublicDashboard from "../pages/PublicDashboard";
 
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuthStore();
   if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>;
   return user ? <AppLayout>{children}</AppLayout> : <Navigate to="/login" />;

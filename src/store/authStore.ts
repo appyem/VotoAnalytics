@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
+import type { User } from "firebase/auth";
 
 interface AuthState {
-  user: any | null;
+  user: User | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;

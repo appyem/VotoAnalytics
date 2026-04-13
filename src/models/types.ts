@@ -20,6 +20,9 @@ export interface VoteRecord {
   leaderIds: string[];
   votes: number;
   projectId: string;
+  // Campos de auditoría (opcionales para compatibilidad con Firestore)
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AnalysisResult {

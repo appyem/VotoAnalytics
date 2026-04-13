@@ -1,4 +1,4 @@
-import { AIRecommendation, AnalysisResult } from "../models/types";
+import type { AIRecommendation, AnalysisResult } from "../models/types";
 
 export const generateRecommendations = (data: AnalysisResult): AIRecommendation[] => {
   const recs: AIRecommendation[] = [];
