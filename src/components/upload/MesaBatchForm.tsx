@@ -160,10 +160,15 @@ export default function MesaBatchForm() {
       return;
     }
 
-    // Validación Ubicación
-    const locValues = Object.values(location);
-    if (locValues.some(v => !v.trim())) {
-      setStatus({ type: "error", msg: "⚠️ Complete todos los campos de ubicación territorial." });
+    // Validación Ubicación (corregimiento es OPCIONAL para casco urbano)
+    const requiredLocation = [
+      location.department,
+      location.municipality,
+      location.puesto,
+      location.mesa
+    ];
+    if (requiredLocation.some(v => !v.trim())) {
+      setStatus({ type: "error", msg: "⚠️ Complete: Departamento, Municipio, Puesto de Votación y Número de Mesa. (Corregimiento es opcional)" });
       return;
     }
 
