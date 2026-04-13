@@ -475,3 +475,108 @@ export const getPartyCandidateReference = async (
     return { parties: {}, candidates: {} };
   }
 };
+
+
+// ============================================================================
+// FUNCIONES PARA GESTIÓN DE REGISTROS (EDITAR/ELIMINAR POR PUESTO)
+// ============================================================================
+
+/**
+ * Busca votos por coincidencia parcial en el campo 'puesto' (insensible a mayúsculas)
+ */
+export const getVotesByPuestoSearch = async (
+  projectId: string,
+  searchQuery: string
+): Promise<VoteRecord[]> => {
+  try {
+    // Traemos todos los votos del proyecto y filtramos en cliente para búsqueda parcial
+    // Nota: Firestore no soporta "contains" nativo en strings; para producción masiva considerar Algolia/Typesense
+    const allVotes = await getVotesByProject(projectId);
+    
+    const queryLower = searchQuery.toLowerCase().trim();
+    return allVotes.filter(v => 
+      v.puesto?.toLowerCase().includes(queryLower)
+    );
+    
+  } catch (error) {
+    console.error(`Error searching votes by puesto "${searchQuery}":`, error);
+    throw new Error("No se pudieron buscar los registros por puesto");
+  }
+};
+
+/**
+ * Actualiza el campo 'puesto' (y opcionalmente 'corregimiento') en múltiples votos
+ * @param voteIds - Array de IDs de documentos a actualizar
+ * @param newPuesto - Nuevo valor para el campo puesto
+ * @param newCorregimiento - Nuevo valor para corregimiento (opcional, si también se corrige)
+ */
+export const updateVotesPuesto = async (
+  voteIds: string[],
+  newPuesto: string,
+  newCorregimiento?: string
+): Promise<{ successCount: number; errorCount: number }> => {
+  const result = { successCount: 0, errorCount: 0 };
+  
+  try {
+    const batch = writeBatch(db);
+    const now = new Date().toISOString();
+    
+    for (const voteId of voteIds) {
+      const docRef = doc(db, COLLECTIONS.VOTES, voteId);
+      const updates: Partial<VoteRecord> = {
+        puesto: newPuesto.trim().toUpperCase(),
+        updatedAt: now
+      };
+      
+      if (newCorregimiento !== undefined) {
+        updates.corregimiento = newCorregimiento.trim().toUpperCase();
+      }
+      
+      batch.update(docRef, updates);
+    }
+    
+    await batch.commit();
+    result.successCount = voteIds.length;
+    
+  } catch (error) {
+    console.error("Error updating votes puesto:", error);
+    result.errorCount = voteIds.length;
+    throw new Error("No se pudieron actualizar los registros");
+  }
+  
+  return result;
+};
+
+/**
+ * Elimina múltiples votos por sus IDs (con validación de seguridad)
+ */
+export const deleteVotesByIds = async (
+  voteIds: string[]
+): Promise<{ successCount: number; errorCount: number }> => {
+  const result = { successCount: 0, errorCount: 0 };
+  
+  try {
+    // Firestore batch delete limit: 500 operations per batch
+    const BATCH_SIZE = 500;
+    
+    for (let i = 0; i < voteIds.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const currentBatch = voteIds.slice(i, i + BATCH_SIZE);
+      
+      for (const voteId of currentBatch) {
+        const docRef = doc(db, COLLECTIONS.VOTES, voteId);
+        batch.delete(docRef);
+      }
+      
+      await batch.commit();
+      result.successCount += currentBatch.length;
+    }
+    
+  } catch (error) {
+    console.error("Error deleting votes:", error);
+    result.errorCount = voteIds.length;
+    throw new Error("No se pudieron eliminar los registros");
+  }
+  
+  return result;
+};
