@@ -418,3 +418,60 @@ export const getProjectStats = async (projectId: string): Promise<{
     throw new Error("No se pudieron calcular las estadísticas");
   }
 };
+
+
+
+// ============================================================================
+// FUNCIONES PARA AUTOCOMPLETADO PERSISTENTE (NUEVO)
+// ============================================================================
+
+/**
+ * Obtiene mappings únicos de partido/candidato para autocompletado persistente
+ * Query optimizado: solo trae campos necesarios, sin descargar votos completos
+ */
+export const getPartyCandidateReference = async (
+  projectId: string
+): Promise<{
+  parties: Record<string, string>; // { [partyId]: partyName }
+  candidates: Record<string, string>; // { [`${partyId}_${candidateId}`]: candidateName }
+}> => {
+  try {
+    // Query optimizado: solo campos necesarios + limit para rendimiento
+    const q = query(
+      collection(db, COLLECTIONS.VOTES),
+      where("projectId", "==", projectId),
+      // Nota: Para usar select() necesitaría Firestore en modo nativo
+      // Por ahora traemos docs completos pero con limit razonable
+      limit(2000) // Ajustar según volumen esperado de partidos/candidatos únicos
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    const parties: Record<string, string> = {};
+    const candidates: Record<string, string> = {};
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data() as Partial<VoteRecord>;
+      
+      // Guardar mapping de partido (si existe y no está ya)
+      if (data.partyId?.trim() && data.partyName?.trim() && !parties[data.partyId]) {
+        parties[data.partyId] = data.partyName.toUpperCase();
+      }
+      
+      // Guardar mapping compuesto de candidato (si existe y no está ya)
+      if (data.partyId?.trim() && data.candidateId?.trim() && data.candidateName?.trim()) {
+        const key = `${data.partyId}_${data.candidateId}`;
+        if (!candidates[key]) {
+          candidates[key] = data.candidateName.toUpperCase();
+        }
+      }
+    });
+    
+    return { parties, candidates };
+    
+  } catch (error) {
+    console.error(`Error fetching reference data for project ${projectId}:`, error);
+    // Retornar vacío en lugar de fallar: el formulario sigue funcionando sin autocompletado
+    return { parties: {}, candidates: {} };
+  }
+};

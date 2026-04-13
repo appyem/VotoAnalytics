@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent, ChangeEvent } from "react";
 import { useDataStore } from "../../store/dataStore";
 import { collection, writeBatch, doc } from "firebase/firestore";
@@ -76,6 +76,13 @@ export default function MesaBatchForm() {
   const [partyCache, setPartyCache] = useState<Record<string, string>>({});
   const [candidateCache, setCandidateCache] = useState<Record<string, string>>({});
 
+    // 🟢 NUEVO: Cache persistente desde Firestore (por campaña)
+  const [persistentCache, setPersistentCache] = useState<{
+    parties: Record<string, string>;
+    candidates: Record<string, string>;
+  }>({ parties: {}, candidates: {} });
+  const [_isCacheLoading, setIsCacheLoading] = useState(false);
+
   // Handlers unificados para inputs y selects
   const handleLocationChange = (e: ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     setLocation(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -94,53 +101,93 @@ export default function MesaBatchForm() {
     if (status) setStatus(null);
   };
 
-  // 🟢 NUEVO: Handler especializado para ID Partido (con autocompletado en onBlur)
+    // 🟢 ACTUALIZADO: Handler para ID Partido (usa cache persistente + sesión)
   const handlePartyIdChange = (rowId: string, value: string) => {
-    // Actualizar el ID del partido
     updateRow(rowId, "partyId", value);
     
-    // Si hay valor y ya existe en cache, autocompletar nombre (solo si el nombre está vacío)
-    if (value.trim() && partyCache[value]) {
+    if (value.trim()) {
+      // Buscar en cache fusionado (persistente + sesión)
+      const fullName = partyCache[value];
       const currentRow = rows.find(r => r.id === rowId);
-      if (currentRow && !currentRow.partyName.trim()) {
-        updateRow(rowId, "partyName", partyCache[value]);
+      
+      if (fullName && currentRow && !currentRow.partyName.trim()) {
+        updateRow(rowId, "partyName", fullName);
       }
     }
   };
 
-  // 🟢 NUEVO: Handler especializado para Nombre Partido (guarda en cache en onBlur)
+  // 🟢 ACTUALIZADO: Handler para Nombre Partido (guarda en sesión + actualiza persistente en submit)
   const handlePartyNameBlur = (rowId: string, value: string) => {
     const currentRow = rows.find(r => r.id === rowId);
     if (currentRow?.partyId.trim() && value.trim()) {
-      // Guardar en cache: partyId -> partyName
-      setPartyCache(prev => ({ ...prev, [currentRow.partyId]: value }));
+      // Guardar en cache de sesión (inmediato)
+      setPartyCache(prev => ({ ...prev, [currentRow.partyId]: value.toUpperCase() }));
+      // Nota: El cache persistente se actualiza al guardar el acta (ver handleSubmit)
     }
   };
 
-  // 🟢 NUEVO: Handler especializado para ID Candidato (con autocompletado compuesto en onBlur)
+  // 🟢 ACTUALIZADO: Handler para ID Candidato (usa cache compuesto persistente)
   const handleCandidateIdChange = (rowId: string, value: string) => {
-    // Actualizar el ID del candidato
     updateRow(rowId, "candidateId", value);
     
-    // Si hay valor y hay partyId, buscar en cache compuesto
-    const currentRow = rows.find(r => r.id === rowId);
-    if (value.trim() && currentRow?.partyId.trim()) {
-      const cacheKey = `${currentRow.partyId}_${value}`;
-      if (candidateCache[cacheKey] && !currentRow.candidateName.trim()) {
-        updateRow(rowId, "candidateName", candidateCache[cacheKey]);
+    if (value.trim()) {
+      const currentRow = rows.find(r => r.id === rowId);
+      if (currentRow?.partyId.trim()) {
+        // Buscar en cache compuesto: "partyId_candidateId"
+        const cacheKey = `${currentRow.partyId}_${value}`;
+        const fullName = candidateCache[cacheKey];
+        
+        if (fullName && !currentRow.candidateName.trim()) {
+          updateRow(rowId, "candidateName", fullName);
+        }
       }
     }
   };
 
-  // 🟢 NUEVO: Handler especializado para Nombre Candidato (guarda en cache compuesto en onBlur)
+  // 🟢 ACTUALIZADO: Handler para Nombre Candidato (guarda en sesión)
   const handleCandidateNameBlur = (rowId: string, value: string) => {
     const currentRow = rows.find(r => r.id === rowId);
     if (currentRow?.partyId.trim() && currentRow?.candidateId.trim() && value.trim()) {
-      // Guardar en cache compuesto: "partyId_candidateId" -> candidateName
       const cacheKey = `${currentRow.partyId}_${currentRow.candidateId}`;
-      setCandidateCache(prev => ({ ...prev, [cacheKey]: value }));
+      // Guardar en cache de sesión
+      setCandidateCache(prev => ({ ...prev, [cacheKey]: value.toUpperCase() }));
     }
   };
+
+
+    // 🟢 NUEVO: Cargar referencias persistentes al montar o cambiar de proyecto
+  useEffect(() => {
+    let mounted = true;
+    
+    const loadPersistentCache = async () => {
+      if (!selectedProject?.id) return;
+      
+      setIsCacheLoading(true);
+      try {
+        // Import dinámica para evitar circular deps si es necesario
+        const { getPartyCandidateReference } = await import("../../services/firestoreService");
+        const reference = await getPartyCandidateReference(selectedProject.id);
+        
+        if (mounted) {
+          setPersistentCache(reference);
+          // Fusionar con cache de sesión (sesión tiene prioridad para ediciones recientes)
+          setPartyCache(prev => ({ ...reference.parties, ...prev }));
+          setCandidateCache(prev => ({ ...reference.candidates, ...prev }));
+        }
+      } catch (error) {
+        console.warn("No se pudo cargar cache persistente:", error);
+        // Continuar sin cache: el formulario sigue funcionando
+      } finally {
+        if (mounted) setIsCacheLoading(false);
+      }
+    };
+    
+    loadPersistentCache();
+    
+    return () => { mounted = false; };
+  }, [selectedProject?.id]);
+
+
 
   const resetForm = () => {
     setLocation(INITIAL_LOCATION);
@@ -220,6 +267,36 @@ export default function MesaBatchForm() {
       }
 
       await batch.commit();
+
+
+
+            // 🟢 NUEVO: Actualizar cache persistente con nuevos mappings encontrados en esta acta
+      const newParties: Record<string, string> = {};
+      const newCandidates: Record<string, string> = {};
+      
+      validRows.forEach(row => {
+        // Guardar mapping de partido si es nuevo
+        if (row.partyId.trim() && row.partyName.trim() && !persistentCache.parties[row.partyId]) {
+          newParties[row.partyId] = row.partyName.toUpperCase();
+        }
+        // Guardar mapping compuesto de candidato si es nuevo
+        if (row.partyId.trim() && row.candidateId.trim() && row.candidateName.trim()) {
+          const key = `${row.partyId}_${row.candidateId}`;
+          if (!persistentCache.candidates[key]) {
+            newCandidates[key] = row.candidateName.toUpperCase();
+          }
+        }
+      });
+      
+      // Fusionar nuevos mappings en estado local (para próximas filas/actas en esta sesión)
+      if (Object.keys(newParties).length > 0 || Object.keys(newCandidates).length > 0) {
+        setPersistentCache(prev => ({
+          parties: { ...prev.parties, ...newParties },
+          candidates: { ...prev.candidates, ...newCandidates }
+        }));
+        setPartyCache(prev => ({ ...prev, ...newParties }));
+        setCandidateCache(prev => ({ ...prev, ...newCandidates }));
+      }
 
       setStatus({ type: "success", msg: `✅ Acta guardada exitosamente. ${validRows.length} candidato(s) registrados.` });
       await loadFirestoreVotes(selectedProject.id);
