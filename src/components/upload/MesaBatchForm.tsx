@@ -21,7 +21,7 @@ const MUNICIPALITIES_BY_REGION: Record<string, string[]> = {
 };
 
 const CORREGIMIENTOS_FILADELFIA = [
-  "El Pintado", "El Verso", "Morritos", "La Paila", "Samaria", "San Luis"
+  "El Pintado", "El Verso", "Morritos", "La Paila", "Samaria", "San Luis", "La Soledad"
 ];
 
 const MESA_OPTIONS = Array.from({ length: 100 }, (_, i) => (i + 1).toString().padStart(3, "0"));
