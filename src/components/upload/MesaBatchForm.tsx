@@ -283,7 +283,16 @@ export default function MesaBatchForm() {
             {CORREGIMIENTOS_FILADELFIA.map(c => <option key={c} value={c}>{c}</option>)}
           </SelectField>
 
-          <InputField label="Puesto de Votación *" name="puesto" value={location.puesto} onChange={handleLocationChange} />
+          <InputField 
+            label="Puesto de Votación *" 
+            name="puesto" 
+            value={location.puesto} 
+            onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setLocation(prev => ({ ...prev, puesto: val }));
+                if (status) setStatus(null);
+            }} 
+            />
           
           <SelectField label="Número de Mesa *" name="mesa" value={location.mesa} onChange={handleLocationChange}>
             <option value="">Seleccione...</option>
@@ -332,7 +341,7 @@ export default function MesaBatchForm() {
                     <input 
                       type="text" 
                       value={row.partyName} 
-                      onChange={(e) => updateRow(row.id, "partyName", e.target.value)}
+                      onChange={(e) => updateRow(row.id, "partyName", e.target.value.toUpperCase())}
                       onBlur={(e) => handlePartyNameBlur(row.id, e.target.value)}
                       className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" 
                     />
@@ -351,7 +360,7 @@ export default function MesaBatchForm() {
                     <input 
                       type="text" 
                       value={row.candidateName} 
-                      onChange={(e) => updateRow(row.id, "candidateName", e.target.value)}
+                      onChange={(e) => updateRow(row.id, "candidateName", e.target.value.toUpperCase())}
                       onBlur={(e) => handleCandidateNameBlur(row.id, e.target.value)}
                       className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" 
                     />
@@ -360,7 +369,7 @@ export default function MesaBatchForm() {
                     <input 
                       type="text" 
                       value={row.leaderIdsRaw} 
-                      onChange={(e) => updateRow(row.id, "leaderIdsRaw", e.target.value)} 
+                      onChange={(e) => updateRow(row.id, "leaderIdsRaw", e.target.value.toUpperCase())} 
                       placeholder="l1, l2" 
                       className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 placeholder-gray-500 focus:border-accent outline-none" 
                     />
