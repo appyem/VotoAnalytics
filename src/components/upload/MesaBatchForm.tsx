@@ -71,6 +71,10 @@ export default function MesaBatchForm() {
   const [rows, setRows] = useState<CandidateRow[]>([createEmptyRow()]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  
+  // 🟢 NUEVO: Cache de autocompletado por sesión
+  const [partyCache, setPartyCache] = useState<Record<string, string>>({});
+  const [candidateCache, setCandidateCache] = useState<Record<string, string>>({});
 
   // Handlers unificados para inputs y selects
   const handleLocationChange = (e: ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
@@ -90,9 +94,60 @@ export default function MesaBatchForm() {
     if (status) setStatus(null);
   };
 
+  // 🟢 NUEVO: Handler especializado para ID Partido (con autocompletado en onBlur)
+  const handlePartyIdChange = (rowId: string, value: string) => {
+    // Actualizar el ID del partido
+    updateRow(rowId, "partyId", value);
+    
+    // Si hay valor y ya existe en cache, autocompletar nombre (solo si el nombre está vacío)
+    if (value.trim() && partyCache[value]) {
+      const currentRow = rows.find(r => r.id === rowId);
+      if (currentRow && !currentRow.partyName.trim()) {
+        updateRow(rowId, "partyName", partyCache[value]);
+      }
+    }
+  };
+
+  // 🟢 NUEVO: Handler especializado para Nombre Partido (guarda en cache en onBlur)
+  const handlePartyNameBlur = (rowId: string, value: string) => {
+    const currentRow = rows.find(r => r.id === rowId);
+    if (currentRow?.partyId.trim() && value.trim()) {
+      // Guardar en cache: partyId -> partyName
+      setPartyCache(prev => ({ ...prev, [currentRow.partyId]: value }));
+    }
+  };
+
+  // 🟢 NUEVO: Handler especializado para ID Candidato (con autocompletado compuesto en onBlur)
+  const handleCandidateIdChange = (rowId: string, value: string) => {
+    // Actualizar el ID del candidato
+    updateRow(rowId, "candidateId", value);
+    
+    // Si hay valor y hay partyId, buscar en cache compuesto
+    const currentRow = rows.find(r => r.id === rowId);
+    if (value.trim() && currentRow?.partyId.trim()) {
+      const cacheKey = `${currentRow.partyId}_${value}`;
+      if (candidateCache[cacheKey] && !currentRow.candidateName.trim()) {
+        updateRow(rowId, "candidateName", candidateCache[cacheKey]);
+      }
+    }
+  };
+
+  // 🟢 NUEVO: Handler especializado para Nombre Candidato (guarda en cache compuesto en onBlur)
+  const handleCandidateNameBlur = (rowId: string, value: string) => {
+    const currentRow = rows.find(r => r.id === rowId);
+    if (currentRow?.partyId.trim() && currentRow?.candidateId.trim() && value.trim()) {
+      // Guardar en cache compuesto: "partyId_candidateId" -> candidateName
+      const cacheKey = `${currentRow.partyId}_${currentRow.candidateId}`;
+      setCandidateCache(prev => ({ ...prev, [cacheKey]: value }));
+    }
+  };
+
   const resetForm = () => {
     setLocation(INITIAL_LOCATION);
     setRows([createEmptyRow()]);
+    // 🟢 NUEVO: Resetear caches al reiniciar formulario
+    setPartyCache({});
+    setCandidateCache({});
     setStatus(null);
   };
 
@@ -257,14 +312,71 @@ export default function MesaBatchForm() {
             <tbody className="divide-y divide-gray-700/30">
               {rows.map((row) => (
                 <tr key={row.id} className="hover:bg-gray-800/20 transition-colors">
-                  <td className="p-2"><input type="text" value={row.partyId} onChange={(e) => updateRow(row.id, "partyId", e.target.value)} className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" /></td>
-                  <td className="p-2"><input type="text" value={row.partyName} onChange={(e) => updateRow(row.id, "partyName", e.target.value)} className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" /></td>
-                  <td className="p-2"><input type="text" value={row.candidateId} onChange={(e) => updateRow(row.id, "candidateId", e.target.value)} className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" /></td>
-                  <td className="p-2"><input type="text" value={row.candidateName} onChange={(e) => updateRow(row.id, "candidateName", e.target.value)} className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" /></td>
-                  <td className="p-2"><input type="text" value={row.leaderIdsRaw} onChange={(e) => updateRow(row.id, "leaderIdsRaw", e.target.value)} placeholder="l1, l2" className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 placeholder-gray-500 focus:border-accent outline-none" /></td>
-                  <td className="p-2"><input type="number" min="0" value={row.votes} onChange={(e) => updateRow(row.id, "votes", e.target.value)} className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 text-right focus:border-accent outline-none" /></td>
+                  {/* 🟢 MODIFICADO: ID Partido con handler especializado */}
+                  <td className="p-2">
+                    <input 
+                      type="text" 
+                      value={row.partyId} 
+                      onChange={(e) => handlePartyIdChange(row.id, e.target.value)}
+                      onBlur={() => handlePartyNameBlur(row.id, row.partyName)}
+                      className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" 
+                    />
+                  </td>
+                  {/* 🟢 MODIFICADO: Nombre Partido con onBlur para guardar en cache */}
+                  <td className="p-2">
+                    <input 
+                      type="text" 
+                      value={row.partyName} 
+                      onChange={(e) => updateRow(row.id, "partyName", e.target.value)}
+                      onBlur={(e) => handlePartyNameBlur(row.id, e.target.value)}
+                      className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" 
+                    />
+                  </td>
+                  {/* 🟢 MODIFICADO: ID Candidato con handler especializado (cache compuesto) */}
+                  <td className="p-2">
+                    <input 
+                      type="text" 
+                      value={row.candidateId} 
+                      onChange={(e) => handleCandidateIdChange(row.id, e.target.value)}
+                      className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" 
+                    />
+                  </td>
+                  {/* 🟢 MODIFICADO: Nombre Candidato con onBlur para guardar en cache compuesto */}
+                  <td className="p-2">
+                    <input 
+                      type="text" 
+                      value={row.candidateName} 
+                      onChange={(e) => updateRow(row.id, "candidateName", e.target.value)}
+                      onBlur={(e) => handleCandidateNameBlur(row.id, e.target.value)}
+                      className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 focus:border-accent outline-none" 
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input 
+                      type="text" 
+                      value={row.leaderIdsRaw} 
+                      onChange={(e) => updateRow(row.id, "leaderIdsRaw", e.target.value)} 
+                      placeholder="l1, l2" 
+                      className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 placeholder-gray-500 focus:border-accent outline-none" 
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input 
+                      type="number" 
+                      min="0" 
+                      value={row.votes} 
+                      onChange={(e) => updateRow(row.id, "votes", e.target.value)} 
+                      className="w-full p-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-200 text-right focus:border-accent outline-none" 
+                    />
+                  </td>
                   <td className="p-2 text-center">
-                    <button type="button" onClick={() => removeRow(row.id)} disabled={rows.length <= 1} className="p-1.5 text-gray-500 hover:text-danger hover:bg-danger/10 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Eliminar fila">
+                    <button 
+                      type="button" 
+                      onClick={() => removeRow(row.id)} 
+                      disabled={rows.length <= 1} 
+                      className="p-1.5 text-gray-500 hover:text-danger hover:bg-danger/10 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors" 
+                      title="Eliminar fila"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>

@@ -79,3 +79,7 @@ button, a, input, select, [role="button"] {
 :focus-visible {
   @apply outline-none ring-2 ring-accent/50 ring-offset-2 ring-offset-gray-900;
 }
+
+input, textarea, select, [contenteditable="true"] {
+  text-transform: uppercase !important;
+}
