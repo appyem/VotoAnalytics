@@ -19,7 +19,11 @@ export default function AppLayout({ children }: { children?: ReactNode }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Breadcrumb Context */}
             <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6" aria-label="Breadcrumb">
-              <span className="hover:text-gray-300 transition-colors cursor-pointer">VotoAnalytics</span>
+              <img 
+  src="https://raw.githubusercontent.com/appyem/imagenesappy/refs/heads/main/Logo%20de%20VotoAnalytics%20con%20gra%CC%81fico%20y%20texto.png" 
+  alt="VotoAnalytics - APPYEMPRESA S.A.S" 
+  className="h-32 w-auto object-contain hover:opacity-90 transition-opacity cursor-pointer"
+/>
               <span className="text-gray-700">/</span>
               <span className="text-gray-300 font-medium">Dashboard</span>
             </nav>

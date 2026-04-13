@@ -57,7 +57,11 @@ export default function Sidebar() {
         {!isCollapsed ? (
           <>
             <div>
-              <h1 className="text-lg font-bold text-accent tracking-tight">VotoAnalytics</h1>
+              <img 
+                src="https://raw.githubusercontent.com/appyem/imagenesappy/refs/heads/main/Logo%20de%20VotoAnalytics%20con%20gra%CC%81fico%20y%20texto.png" 
+                alt="VotoAnalytics - APPYEMPRESA S.A.S" 
+                className="h-32 w-auto object-contain"
+                />
               <p className="text-xs text-gray-500 mt-0.5">APPYEMPRESA S.A.S</p>
             </div>
           </>

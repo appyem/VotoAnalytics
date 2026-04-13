@@ -47,7 +47,11 @@ export default function Login() {
                 <ShieldCheck className="w-6 h-6 text-accent" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white tracking-tight">VotoAnalytics</h1>
+                <img 
+                    src="https://raw.githubusercontent.com/appyem/imagenesappy/refs/heads/main/Logo%20de%20VotoAnalytics%20con%20gra%CC%81fico%20y%20texto.png" 
+                    alt="VotoAnalytics - APPYEMPRESA S.A.S" 
+                    className="h-48 w-auto object-contain mx-auto mb-4"
+                    />
                 <p className="text-xs text-gray-400">Plataforma de Inteligencia Electoral</p>
               </div>
             </div>
