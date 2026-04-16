@@ -6,6 +6,7 @@ import { getProjects, getVotesByProject, getVotesFiltered } from "../services/fi
 export interface FilterState {
   department?: string;
   municipality?: string;
+  corregimiento?: string;  // 🔹 NUEVO: filtro por corregimiento
   partyId?: string;
   candidateId?: string;
 }
@@ -83,7 +84,13 @@ export const useDataStore = create<DataState>((set, get) => ({
       const cleanFilters = Object.fromEntries(
         Object.entries(filters).filter(([_, v]) => v !== undefined && v !== "")
       );
-      const votes = await getVotesFiltered(projectId, cleanFilters as Parameters<typeof getVotesFiltered>[1]);
+      const votes = await getVotesFiltered(projectId, {
+      department: cleanFilters.department,
+      municipality: cleanFilters.municipality,
+      partyId: cleanFilters.partyId,
+      candidateId: cleanFilters.candidateId
+      // corregimiento se maneja en cliente por ahora (ver Dashboard.tsx)
+    });
       set({ votes, loading: false, filters });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error aplicando filtros";

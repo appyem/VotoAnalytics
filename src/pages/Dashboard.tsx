@@ -9,10 +9,140 @@ import {
 } from "recharts";
 import { 
   Download, RefreshCw, Filter, TrendingUp, Users, MapPin, Award,
-  ChevronDown, Search, SlidersHorizontal, Eye, AlertCircle, CheckCircle
+  ChevronDown, Search, SlidersHorizontal, Eye, AlertCircle, CheckCircle,
+  Trophy, Target, Building2, Hash, Loader2
 } from "lucide-react";
 
+  
+
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
+
+
+
+// ============================================================================
+// NUEVOS COMPONENTES PARA RANKINGS PROFESIONALES
+// ============================================================================
+
+const RankingCard = ({ title, icon, items, type }: { 
+  title: string; 
+  icon: React.ReactNode; 
+  items: Array<{ name: string; votes: number; party?: string; candidate?: string; puesto?: string; mesa?: string }>; 
+  type: "candidate" | "party" | "puesto" | "mesa" 
+}) => (
+  <div className="bg-surface/50 rounded-xl border border-gray-700/50 p-4 hover:border-gray-600/50 transition-colors">
+    <div className="flex items-center gap-2 mb-3">
+      <div className="p-1.5 bg-accent/10 rounded-lg">{icon}</div>
+      <h4 className="font-semibold text-white text-sm">{title}</h4>
+    </div>
+    <div className="space-y-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex flex-col gap-1 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                i === 0 ? "bg-yellow-500/20 text-yellow-400" : 
+                i === 1 ? "bg-gray-400/20 text-gray-300" : 
+                i === 2 ? "bg-orange-500/20 text-orange-400" : "bg-gray-700 text-gray-400"
+              }`}>{i + 1}</span>
+              <span className="truncate text-gray-200 font-medium">{item.name}</span>
+            </div>
+            <span className="font-semibold text-accent">{item.votes.toLocaleString()}</span>
+          </div>
+          {/* 🔹 Detalles adicionales para tipo "mesa" */}
+          {type === "mesa" && (item.puesto || item.party || item.candidate) && (
+            <div className="pl-7 space-y-0.5 text-[10px] text-gray-400">
+              {item.puesto && <div className="truncate">📍 {item.puesto}</div>}
+              {item.party && <div className="truncate">🎖️ {item.party}</div>}
+              {item.candidate && <div className="truncate">👤 {item.candidate}</div>}
+            </div>
+          )}
+          {/* 🔹 Partido para candidatos */}
+          {type === "candidate" && item.party && (
+            <div className="pl-7 text-[10px] text-gray-500 truncate">{item.party}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const TerritoryStrengthCard = ({ territory, data }: { 
+  territory: string; 
+  data: { 
+    totalVotes: number; 
+    topParty: string; 
+    topCandidate: string;
+    partiesRanked: Array<{ name: string; votes: number }>;
+    candidatesRanked: Array<{ name: string; votes: number }>;
+  } 
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  return (
+    <div className="bg-surface/30 rounded-lg p-3 border border-gray-700/30 hover:border-accent/30 transition-colors">
+      {/* Header clickable */}
+      <div 
+        className="flex items-center justify-between mb-2 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-xs font-medium text-gray-300 truncate">{territory}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] px-1.5 py-0.5 bg-accent/10 text-accent rounded">{data.totalVotes.toLocaleString()} votos</span>
+          <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+      
+      {/* Top resumen */}
+      <div className="space-y-1 text-[10px]">
+        <div className="flex justify-between">
+          <span className="text-gray-500">🏆 Partido:</span>
+          <span className="text-gray-300 truncate ml-2">{data.topParty || "-"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">👤 Candidato:</span>
+          <span className="text-gray-300 truncate ml-2">{data.topCandidate || "-"}</span>
+        </div>
+      </div>
+      
+      {/* 🔹 Rankings completos (colapsables) */}
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-gray-700/30 space-y-3">
+          {/* Partidos */}
+          <div>
+            <div className="text-[10px] font-medium text-gray-400 mb-1">Partidos (mayor → menor)</div>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {data.partiesRanked.map((p, i) => (
+                <div key={i} className="flex justify-between text-[10px]">
+                  <span className="text-gray-500 truncate">{i+1}. {p.name}</span>
+                  <span className="text-accent font-medium">{p.votes.toLocaleString()}</span>
+                </div>
+              ))}
+              {data.partiesRanked.length === 0 && <span className="text-[10px] text-gray-600">Sin datos</span>}
+            </div>
+          </div>
+          
+          {/* Candidatos */}
+          <div>
+            <div className="text-[10px] font-medium text-gray-400 mb-1">Candidatos (mayor → menor)</div>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {data.candidatesRanked.map((c, i) => (
+                <div key={i} className="flex justify-between text-[10px]">
+                  <span className="text-gray-500 truncate">{i+1}. {c.name}</span>
+                  <span className="text-accent font-medium">{c.votes.toLocaleString()}</span>
+                </div>
+              ))}
+              {data.candidatesRanked.length === 0 && <span className="text-[10px] text-gray-600">Sin datos</span>}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+
+
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color?: string }>; label?: string }) => {
@@ -32,12 +162,13 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 // Filter Panel Component
-const FilterPanel = ({ isOpen, onClose, tempFilters, setTempFilters, onApply }: { 
+const FilterPanel = ({ isOpen, onClose, tempFilters, setTempFilters, onApply, corregimientos }: { 
   isOpen: boolean; 
   onClose: () => void; 
-  tempFilters: { department?: string; municipality?: string; partyId?: string }; 
-  setTempFilters: (f: { department?: string; municipality?: string; partyId?: string }) => void;
+  tempFilters: { department?: string; municipality?: string; corregimiento?: string; partyId?: string }; 
+  setTempFilters: (f: { department?: string; municipality?: string; corregimiento?: string; partyId?: string }) => void;
   onApply: () => void;
+  corregimientos: string[];  // 🔹 NUEVO: lista de corregimientos para el select
 }) => {
   if (!isOpen) return null;
   
@@ -76,6 +207,23 @@ const FilterPanel = ({ isOpen, onClose, tempFilters, setTempFilters, onApply }: 
               onChange={(e) => setTempFilters({ ...tempFilters, municipality: e.target.value })}
               className="w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:border-accent outline-none"
             />
+          </div>
+
+
+                    {/* 🔹 NUEVO: Filtro por Corregimiento */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-gray-300">Corregimiento</label>
+            <select 
+              value={tempFilters.corregimiento || ""} 
+              onChange={(e) => setTempFilters({ ...tempFilters, corregimiento: e.target.value || undefined })}
+              className="w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:border-accent outline-none"
+            >
+              <option value="">Todos (incluye urbano)</option>
+              {corregimientos.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-gray-500">Dejar vacío para incluir casco urbano + todos los corregimientos</p>
           </div>
           
           {/* Partido */}
@@ -202,6 +350,16 @@ export default function Dashboard() {
   const [useMock, setUseMock] = useState(false); // Toggle para desarrollo
   const [tempFilters, setTempFilters] = useState<{ department?: string; municipality?: string; partyId?: string }>({});
 
+    // 🔹 NUEVO: Rankings estratégicos
+  const [_strategicRankings, setStrategicRankings] = useState<{
+    topCandidates: Array<{ name: string; votes: number; party: string }>;
+    topParties: Array<{ name: string; votes: number }>;
+    topPuestos: Array<{ name: string; votes: number; municipality: string; corregimiento?: string }>;
+    topMesas: Array<{ mesa: string; puesto: string; votes: number; party: string; candidate: string }>;
+    byCorregimiento: Record<string, { totalVotes: number; topParty: string; topCandidate: string }>;
+  } | null>(null);
+  const [rankingsLoading, setRankingsLoading] = useState(false);
+
   // Cargar datos al montar componente
   useEffect(() => {
     const initializeData = async () => {
@@ -214,10 +372,26 @@ export default function Dashboard() {
     initializeData();
   }, [useMock, loadMockData, loadFirestoreProjects]);
 
-  // Cargar votos cuando cambia el proyecto seleccionado
+    // Cargar votos + rankings cuando cambia proyecto
   useEffect(() => {
     if (selectedProject?.id && !useMock) {
+      // Cargar votos base
       loadFirestoreVotes(selectedProject.id);
+      
+      // Cargar rankings estratégicos
+      const loadRankings = async () => {
+        setRankingsLoading(true);
+        try {
+          const { getStrategicRankings } = await import("../services/firestoreService");
+          const rankings = await getStrategicRankings(selectedProject.id);
+          setStrategicRankings(rankings);
+        } catch (err) {
+          console.warn("No se pudieron cargar rankings:", err);
+        } finally {
+          setRankingsLoading(false);
+        }
+      };
+      loadRankings();
     }
   }, [selectedProject?.id, useMock, loadFirestoreVotes]);
 
@@ -247,11 +421,15 @@ export default function Dashboard() {
   };
 
     // Handler para aplicar filtros
-  const handleApplyFilters = useCallback(() => {
+    const handleApplyFilters = useCallback(() => {
     if (selectedProject?.id) {
       const store = useDataStore.getState();
       if ('loadFilteredVotes' in store) {
-        (store as any).loadFilteredVotes(selectedProject.id, tempFilters);
+        // Limpiar filtros vacíos antes de enviar
+        const cleanFilters = Object.fromEntries(
+          Object.entries(tempFilters).filter(([_, v]) => v !== undefined && v !== "")
+        );
+        (store as any).loadFilteredVotes(selectedProject.id, cleanFilters);
       }
     }
     setShowFilters(false);
@@ -287,16 +465,124 @@ export default function Dashboard() {
       .sort((a, b) => b.votes - a.votes);
   }, [filteredVotes]);
 
-    const growthData = useMemo(() => {
-    if (!selectedProject || projects.length < 2) return [];
+      // 🔹 NUEVO: Votos por Candidato (ordenado descendente)
+  const votesByCandidate = useMemo(() => {
+    const map = new Map<string, { votes: number; party: string }>();
+    filteredVotes.forEach((v: any) => {
+      if (v.candidateName?.trim()) {
+        const key = v.candidateName.toUpperCase();
+        const existing = map.get(key) || { votes: 0, party: v.partyName || "" };
+        map.set(key, { votes: existing.votes + v.votes, party: existing.party || v.partyName || "" });
+      }
+    });
+    return Array.from(map.entries())
+      .map(([candidate, data]) => ({ candidate, votes: data.votes, party: data.party }))
+      .sort((a, b) => b.votes - a.votes);
+  }, [filteredVotes]);
+
+  // 🔹 NUEVO: Votos por Puesto de Votación (ordenado descendente)
+  const votesByPuesto = useMemo(() => {
+    const map = new Map<string, { votes: number; municipality: string; corregimiento?: string }>();
+    filteredVotes.forEach((v: any) => {
+      if (v.puesto?.trim()) {
+        const key = v.puesto.toUpperCase();
+        const existing = map.get(key) || { votes: 0, municipality: v.municipality || "", corregimiento: v.corregimiento };
+        map.set(key, { 
+          votes: existing.votes + v.votes, 
+          municipality: existing.municipality, 
+          corregimiento: existing.corregimiento 
+        });
+      }
+    });
+    return Array.from(map.entries())
+      .map(([puesto, data]) => ({ puesto, votes: data.votes, municipality: data.municipality, corregimiento: data.corregimiento }))
+      .sort((a, b) => b.votes - a.votes);
+  }, [filteredVotes]);
+
+  // 🔹 NUEVO: Votos por Mesa (ordenado descendente)
+  const votesByMesa = useMemo(() => {
+    return [...filteredVotes]
+      .sort((a: any, b: any) => b.votes - a.votes)
+      .map((v: any) => ({
+        mesa: v.mesa,
+        puesto: v.puesto,
+        party: v.partyName || "",
+        candidate: v.candidateName || "",
+        votes: v.votes
+      }));
+  }, [filteredVotes]);
+
+  // 🔹 NUEVO: Inteligencia Territorial por Corregimiento
+  const territorialIntelligence = useMemo(() => {
+    const corrMap = new Map<string, { 
+      totalVotes: number; 
+      parties: Map<string, number>; 
+      candidates: Map<string, number> 
+    }>();
     
-    // MVP: mostrar distribución actual con crecimiento simulado
-    // Esto se reemplazará con comparación real cuando activemos previousVotes en el store
+    filteredVotes.forEach((v: any) => {
+      const key = (v.corregimiento?.trim() || v.municipality)?.toUpperCase() || "SIN UBICACIÓN";
+      const existing = corrMap.get(key) || { 
+        totalVotes: 0, 
+        parties: new Map<string, number>(), 
+        candidates: new Map<string, number>() 
+      };
+      
+      existing.totalVotes += v.votes;
+      if (v.partyName?.trim()) {
+        const pKey = v.partyName.toUpperCase();
+        existing.parties.set(pKey, (existing.parties.get(pKey) || 0) + v.votes);
+      }
+      if (v.candidateName?.trim()) {
+        const cKey = v.candidateName.toUpperCase();
+        existing.candidates.set(cKey, (existing.candidates.get(cKey) || 0) + v.votes);
+      }
+      corrMap.set(key, existing);
+    });
+    
+    const result: Record<string, { 
+      totalVotes: number; 
+      topParty: string; 
+      topCandidate: string;
+      partiesRanked: Array<{ name: string; votes: number }>;
+      candidatesRanked: Array<{ name: string; votes: number }>;
+    }> = {};
+    
+    corrMap.forEach((data, key) => {
+      // Rankings ordenados descendente
+      const partiesRanked = Array.from(data.parties.entries())
+        .map(([name, votes]) => ({ name, votes }))
+        .sort((a, b) => b.votes - a.votes);
+      const candidatesRanked = Array.from(data.candidates.entries())
+        .map(([name, votes]) => ({ name, votes }))
+        .sort((a, b) => b.votes - a.votes);
+      
+      result[key] = { 
+        totalVotes: data.totalVotes, 
+        topParty: partiesRanked[0]?.name || "", 
+        topCandidate: candidatesRanked[0]?.name || "",
+        partiesRanked,
+        candidatesRanked
+      };
+    });
+    
+    return result;
+  }, [filteredVotes]);
+
+  // 🔹 NUEVO: Extraer corregimientos únicos para el filtro
+  const availableCorregimientos = useMemo(() => {
+    const corrs = new Set(filteredVotes.map((v: any) => v.corregimiento).filter(Boolean));
+    return Array.from(corrs).sort() as string[];
+  }, [filteredVotes]);
+
+  // 🔹 Crecimiento (simulado para MVP)
+  const growthData = useMemo(() => {
+    if (!selectedProject || projects.length < 2) return [];
     return votesByParty.map(({ party, votes: partyVotes }) => ({
       party,
       current: partyVotes,
-      previous: Math.round(partyVotes * 0.85), // Simulación temporal
-      growth: Math.round((Math.random() - 0.3) * 40) // Simulación temporal
+      previous: Math.round(partyVotes * 0.85),
+      growth: Math.round((Math.random() - 0.3) * 40)
     })).sort((a, b) => b.growth - a.growth);
   }, [votesByParty, selectedProject, projects.length]);
 
@@ -485,6 +771,63 @@ export default function Dashboard() {
         />
       </section>
 
+            {/* 🔹 NUEVA SECCIÓN: Rankings Profesionales Top 5 */}
+      <section className="bg-surface/50 backdrop-blur-sm rounded-xl border border-gray-700/50 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-accent" /> Rankings Estratégicos Top 5
+          </h3>
+          {rankingsLoading && <span className="text-xs text-gray-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Calculando...</span>}
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <RankingCard title="🏆 Candidatos" icon={<Users className="w-4 h-4" />} items={votesByCandidate.slice(0, 5).map((c: any) => ({ name: c.candidate, votes: c.votes, party: c.party }))} type="candidate" />
+          <RankingCard title="🎖️ Partidos" icon={<Award className="w-4 h-4" />} items={votesByParty.slice(0, 5).map((p: any) => ({ name: p.party, votes: p.votes }))} type="party" />
+          <RankingCard title="🏢 Puestos de Votación" icon={<Building2 className="w-4 h-4" />} items={votesByPuesto.slice(0, 5).map(p => ({ name: p.puesto, votes: p.votes }))} type="puesto" />
+          <RankingCard title="🗳️ Mesas Destacadas" icon={<Hash className="w-4 h-4" />} items={votesByMesa.slice(0, 5).map((m: any) => ({ 
+          name: `Mesa ${m.mesa}`, 
+          votes: m.votes, 
+          party: m.party,
+          candidate: m.candidate,
+          puesto: m.puesto,
+          mesa: m.mesa
+        }))} type="mesa" />
+        </div>
+      </section>
+
+
+            {/* 🔹 NUEVA SECCIÓN: Inteligencia Territorial */}
+      <section className="bg-surface/50 backdrop-blur-sm rounded-xl border border-gray-700/50 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Target className="w-5 h-5 text-accent" /> Inteligencia Territorial
+          </h3>
+          <span className="text-xs text-gray-500">{Object.keys(territorialIntelligence).length} sectores analizados</span>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Object.entries(territorialIntelligence).map(([territory, data]: [string, { 
+            totalVotes: number; 
+            topParty: string; 
+            topCandidate: string;
+            partiesRanked: Array<{ name: string; votes: number }>;
+            candidatesRanked: Array<{ name: string; votes: number }>;
+          }]) => (
+            <TerritoryStrengthCard key={territory} territory={territory} data={data} />
+          ))}
+                    {Object.keys(territorialIntelligence).length === 0 && (
+            <p className="text-sm text-gray-500 col-span-full text-center py-4">Sin datos territoriales disponibles</p>
+          )}
+        </div>
+        
+        {/* Leyenda de interpretación */}
+        <div className="mt-4 pt-3 border-t border-gray-700/50 text-[10px] text-gray-500 flex flex-wrap gap-4">
+          <span>🏆 <strong>Partido fuerte:</strong> Mayor votación en el sector</span>
+          <span>👤 <strong>Candidato fuerte:</strong> Mayor votación individual en el sector</span>
+          <span>💡 <strong>Estrategia:</strong> Fortalezca donde su candidato sea débil y el rival sea fuerte</span>
+        </div>
+      </section>
+
       {/* ===== STATUS BAR ===== */}
       <section className="bg-surface/50 backdrop-blur-sm p-4 rounded-xl border border-gray-700/50">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -613,97 +956,87 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ===== DATA TABLE ===== */}
+           {/* ===== RESUMEN ESTRATÉGICO POR PUESTO (REEMPLAZA TABLA CRUDA) ===== */}
       <section className="bg-surface/50 backdrop-blur-sm rounded-xl border border-gray-700/50 overflow-hidden">
         <div className="p-4 border-b border-gray-700/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-white">Últimos Registros Cargados</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{filteredVotes.length} registros totales • Ordenados por fecha</p>
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-accent" /> Resumen Estratégico por Puesto
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">Votación exacta agrupada • Ranking por influencia territorial</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
-              Exportar CSV
-            </button>
-            <button className="px-3 py-1.5 text-xs text-accent bg-accent/10 hover:bg-accent/20 rounded-lg transition-colors font-medium">
-              Ver todos →
-            </button>
-          </div>
+          <span className="px-3 py-1 bg-accent/10 text-accent text-xs rounded-full border border-accent/30">
+            {votesByPuesto.length} puestos activos
+          </span>
         </div>
         
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-800/50 text-gray-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Mesa</th>
-                <th className="px-4 py-3 text-left font-medium">Partido</th>
-                <th className="px-4 py-3 text-left font-medium">Candidato</th>
-                <th className="px-4 py-3 text-left font-medium">Ubicación</th>
-                <th className="px-4 py-3 text-right font-medium">Votos</th>
-                <th className="px-4 py-3 text-center font-medium">Acciones</th>
+                <th className="px-4 py-3 text-left font-medium">#</th>
+                <th className="px-4 py-3 text-left font-medium">Puesto / Corregimiento</th>
+                <th className="px-4 py-3 text-right font-medium">Votos Totales</th>
+                <th className="px-4 py-3 text-right font-medium">% del Total</th>
+                <th className="px-4 py-3 text-left font-medium">Partido Líder</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700/30">
-              {filteredVotes.slice(0, 8).map((v, index) => (
-                <tr key={v.id} className="hover:bg-gray-800/20 transition-colors group">
-                  <td className="px-4 py-3.5">
-                    <span className="inline-flex items-center px-2.5 py-1 bg-gray-800 rounded-md text-xs font-mono text-gray-300 border border-gray-700">
-                      {v.mesa}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                      <span className="text-gray-200 font-medium">{v.partyName}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-gray-300">{v.candidateName}</td>
-                  <td className="px-4 py-3.5 text-gray-400 text-xs">
-                    <span className="block">{v.municipality}</span>
-                    <span className="text-gray-500">{v.department}</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-right">
-                    <span className="font-semibold text-accent">{v.votes.toLocaleString()}</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <button className="p-1.5 text-gray-500 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filteredVotes.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    No hay registros para este proyecto
-                  </td>
-                </tr>
+              {votesByPuesto.map((item, idx) => {
+                const pct = totalVotes > 0 ? ((item.votes / totalVotes) * 100).toFixed(1) : "0.0";
+                return (
+                  <tr key={item.puesto} className="hover:bg-gray-800/20 transition-colors">
+                    <td className="px-4 py-3.5 text-gray-400 font-mono">{idx + 1}</td>
+                    <td className="px-4 py-3.5">
+                      <div className="text-gray-200 font-medium">{item.puesto}</div>
+                      {item.corregimiento && <div className="text-[10px] text-accent/80 mt-0.5">📍 {item.corregimiento}</div>}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-semibold text-white">{item.votes.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-accent rounded-full" style={{ width: `${Math.min(Number(pct), 100)}%` }} />
+                        </div>
+                        <span className="text-gray-300 text-xs">{pct}%</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-gray-300">
+                      <span className="px-2 py-0.5 bg-gray-800 rounded text-xs border border-gray-700">
+                        {/* Se calcula dinámicamente en el render */}
+                        🏆 {(() => {
+                          const partyMap = new Map<string, number>();
+                          filteredVotes.filter(v => v.puesto === item.puesto).forEach(v => {
+                            partyMap.set(v.partyName || "N/A", (partyMap.get(v.partyName) || 0) + v.votes);
+                          });
+                          return Array.from(partyMap.entries()).sort((a,b) => b[1]-a[1])[0]?.[0] || "N/A";
+                        })()}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {votesByPuesto.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Sin datos territoriales cargados</td></tr>
               )}
             </tbody>
           </table>
         </div>
         
-        {/* Table Footer */}
-        <div className="p-3 border-t border-gray-700/50 bg-gray-800/20 flex items-center justify-between text-xs text-gray-500">
-          <span>Mostrando 1-{Math.min(8, filteredVotes.length)} de {filteredVotes.length} registros</span>
-          <div className="flex items-center gap-1">
-            <button className="px-2.5 py-1 rounded hover:bg-gray-700 transition-colors disabled:opacity-50" disabled>←</button>
-            <button className="px-2.5 py-1 bg-accent text-white rounded">1</button>
-            <button className="px-2.5 py-1 rounded hover:bg-gray-700 transition-colors">2</button>
-            <button className="px-2.5 py-1 rounded hover:bg-gray-700 transition-colors">3</button>
-            <span className="px-1">...</span>
-            <button className="px-2.5 py-1 rounded hover:bg-gray-700 transition-colors">→</button>
-          </div>
+        <div className="p-3 border-t border-gray-700/50 bg-gray-800/20 text-xs text-gray-500 flex items-center justify-between">
+          <span>📊 Agrupación exacta por puesto de votación • Sin datos crudos irrelevantes</span>
+          <span>{votesByPuesto.length} sectores analizados</span>
         </div>
       </section>
 
-      {/* Filter Panel Modal */}
+            {/* Filter Panel Modal */}
       <FilterPanel 
         isOpen={showFilters} 
         onClose={() => setShowFilters(false)} 
         tempFilters={tempFilters}
         setTempFilters={setTempFilters}
         onApply={handleApplyFilters}
-        />
+        corregimientos={availableCorregimientos}  // 🔹 NUEVO: pasar lista de corregimientos
+      />
     </div>
   );
 }

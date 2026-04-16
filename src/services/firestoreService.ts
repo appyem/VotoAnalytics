@@ -580,3 +580,161 @@ export const deleteVotesByIds = async (
   
   return result;
 };
+
+
+// ============================================================================
+// FUNCIONES PARA RANKINGS PROFESIONALES (NUEVO)
+// ============================================================================
+
+/**
+ * Obtiene rankings agregados por múltiples dimensiones para análisis estratégico
+ */
+export const getStrategicRankings = async (
+  projectId: string
+): Promise<{
+  topCandidates: Array<{ name: string; votes: number; party: string }>;
+  topParties: Array<{ name: string; votes: number }>;
+  topPuestos: Array<{ name: string; votes: number; municipality: string; corregimiento?: string }>;
+  topMesas: Array<{ mesa: string; puesto: string; votes: number; party: string; candidate: string }>;
+  byCorregimiento: Record<string, { totalVotes: number; topParty: string; topCandidate: string }>;
+}> => {
+  try {
+    const allVotes = await getVotesByProject(projectId);
+    
+    // 1. Top Candidatos
+    const candidateMap = new Map<string, { votes: number; party: string }>();
+    allVotes.forEach(v => {
+      if (v.candidateName?.trim()) {
+        const key = v.candidateName.toUpperCase();
+        const existing = candidateMap.get(key) || { votes: 0, party: v.partyName || "" };
+        candidateMap.set(key, { 
+          votes: existing.votes + v.votes, 
+          party: existing.party || v.partyName || "" 
+        });
+      }
+    });
+    const topCandidates = Array.from(candidateMap.entries())
+      .map(([name, data]) => ({ name, votes: data.votes, party: data.party }))
+      .sort((a, b) => b.votes - a.votes)
+      .slice(0, 5);
+    
+    // 2. Top Partidos
+    const partyMap = new Map<string, number>();
+    allVotes.forEach(v => {
+      if (v.partyName?.trim()) {
+        const key = v.partyName.toUpperCase();
+        partyMap.set(key, (partyMap.get(key) || 0) + v.votes);
+      }
+    });
+    const topParties = Array.from(partyMap.entries())
+      .map(([name, votes]) => ({ name, votes }))
+      .sort((a, b) => b.votes - a.votes)
+      .slice(0, 5);
+    
+    // 3. Top Puestos de Votación
+    const puestoMap = new Map<string, { votes: number; municipality: string; corregimiento?: string }>();
+    allVotes.forEach(v => {
+      if (v.puesto?.trim()) {
+        const key = v.puesto.toUpperCase();
+        const existing = puestoMap.get(key) || { votes: 0, municipality: v.municipality || "", corregimiento: v.corregimiento };
+        puestoMap.set(key, { 
+          votes: existing.votes + v.votes, 
+          municipality: existing.municipality, 
+          corregimiento: existing.corregimiento 
+        });
+      }
+    });
+    const topPuestos = Array.from(puestoMap.entries())
+      .map(([name, data]) => ({ name, votes: data.votes, municipality: data.municipality, corregimiento: data.corregimiento }))
+      .sort((a, b) => b.votes - a.votes)
+      .slice(0, 5);
+    
+    // 4. Top Mesas (por votación individual)
+    const topMesas = [...allVotes]
+      .sort((a, b) => b.votes - a.votes)
+      .slice(0, 5)
+      .map(v => ({
+        mesa: v.mesa,
+        puesto: v.puesto,
+        votes: v.votes,
+        party: v.partyName || "",
+        candidate: v.candidateName || ""
+      }));
+    
+    // 5. Agrupación por Corregimiento (inteligencia territorial)
+    const corregimientoMap = new Map<string, { totalVotes: number; parties: Map<string, number>; candidates: Map<string, number> }>();
+    allVotes.forEach(v => {
+      // Usar corregimiento si existe, sino municipio como fallback
+      const territorialKey = (v.corregimiento?.trim() || v.municipality)?.toUpperCase() || "SIN UBICACIÓN";
+      
+      const existing = corregimientoMap.get(territorialKey) || { 
+        totalVotes: 0, 
+        parties: new Map<string, number>(), 
+        candidates: new Map<string, number>() 
+      };
+      
+      existing.totalVotes += v.votes;
+      if (v.partyName?.trim()) {
+        const pKey = v.partyName.toUpperCase();
+        existing.parties.set(pKey, (existing.parties.get(pKey) || 0) + v.votes);
+      }
+      if (v.candidateName?.trim()) {
+        const cKey = v.candidateName.toUpperCase();
+        existing.candidates.set(cKey, (existing.candidates.get(cKey) || 0) + v.votes);
+      }
+      
+      corregimientoMap.set(territorialKey, existing);
+    });
+    
+    const byCorregimiento: Record<string, { totalVotes: number; topParty: string; topCandidate: string }> = {};
+    corregimientoMap.forEach((data, key) => {
+      const topParty = Array.from(data.parties.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+      const topCandidate = Array.from(data.candidates.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+      byCorregimiento[key] = { totalVotes: data.totalVotes, topParty, topCandidate };
+    });
+    
+    return { topCandidates, topParties, topPuestos, topMesas, byCorregimiento };
+    
+  } catch (error) {
+    console.error("Error calculating strategic rankings:", error);
+    throw new Error("No se pudieron generar los rankings estratégicos");
+  }
+};
+
+/**
+ * Obtiene votos filtrados por territorio jerárquico (incluye corregimientos)
+ */
+export const getVotesByTerritory = async (
+  projectId: string,
+  territoryFilter: {
+    municipality?: string;
+    corregimiento?: string;  // NUEVO: filtro específico para corregimientos
+    puesto?: string;
+  }
+): Promise<VoteRecord[]> => {
+  try {
+    const allVotes = await getVotesByProject(projectId);
+    
+    return allVotes.filter(v => {
+      if (territoryFilter.municipality && v.municipality?.toUpperCase() !== territoryFilter.municipality.toUpperCase()) {
+        return false;
+      }
+      // NUEVO: Filtro por corregimiento (si se especifica, debe coincidir exactamente)
+      if (territoryFilter.corregimiento) {
+        const filterCorr = territoryFilter.corregimiento.toUpperCase().trim();
+        const voteCorr = (v.corregimiento || "").toUpperCase().trim();
+        if (filterCorr && voteCorr !== filterCorr) {
+          return false;
+        }
+      }
+      if (territoryFilter.puesto && v.puesto?.toUpperCase() !== territoryFilter.puesto.toUpperCase()) {
+        return false;
+      }
+      return true;
+    });
+    
+  } catch (error) {
+    console.error("Error filtering by territory:", error);
+    throw new Error("No se pudieron filtrar los votos por territorio");
+  }
+};
